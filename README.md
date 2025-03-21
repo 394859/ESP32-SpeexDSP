@@ -57,6 +57,7 @@ void setup() {
 MIT License (see SpeexDSP licensing for included files). 
  
 ## Authors 
+- **RjSachse (KookyMarvin)** 
 - **Grok (xAI)** - Code assistance and optimization 
  
 ## Acknowledgments 
