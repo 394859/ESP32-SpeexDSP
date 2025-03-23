@@ -35,6 +35,10 @@
 #ifndef ARCH_H
 #define ARCH_H
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 /* A couple test to catch stupid option combinations */
 #ifdef FIXED_POINT
 

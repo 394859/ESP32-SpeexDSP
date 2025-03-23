@@ -7,4 +7,8 @@
 #define USE_KISS_FFT 1         // Enable Kiss FFT
 #define EXPORT                 // Empty EXPORT for no DLL exports
 
+// Optional ESP32-specific options
+//#define USE_PSRAM 1            // Use PSRAM for allocations if available
+//#define USE_FREERTOS_HEAP 1    // Use FreeRTOS heap (pvPortMalloc/vPortFree)
+
 #endif /* CONFIG_H */

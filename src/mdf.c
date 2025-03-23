@@ -65,9 +65,7 @@
 
 */
 
-#ifdef HAVE_CONFIG_H
 #include "config.h"
-#endif
 
 #include "arch.h"
 #include "speex/speex_echo.h"

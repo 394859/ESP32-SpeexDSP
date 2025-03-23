@@ -26,7 +26,8 @@ void setup() {
     while (1) delay(1000);
   }
   dsp.enableNoiseSuppression(true);
-  Serial.println("Noise suppression enabled");
+  dsp.setNoiseSuppressionLevel(-15); // Less aggressive NS
+  Serial.println("Noise suppression enabled (-15 dB)");
   dsp.enableAGC(true, 0.9f);
   Serial.println("AGC enabled with target level 0.9");
   dsp.enableVAD(true);
@@ -70,7 +71,8 @@ void loop() {
     if (input.startsWith("NS=")) {
       bool enable = input.substring(3).toInt() == 1;
       dsp.enableNoiseSuppression(enable);
-      Serial.println(enable ? "Noise suppression enabled" : "Noise suppression disabled");
+      if (enable) dsp.setNoiseSuppressionLevel(-15); // Re-apply level
+      Serial.println(enable ? "Noise suppression enabled (-15 dB)" : "Noise suppression disabled");
     } else if (input.startsWith("AGC=")) {
       float level = input.substring(4).toFloat();
       if (level >= 0.0f && level <= 1.0f) {
@@ -118,6 +120,12 @@ void testAudioProcessing() {
   // Test preprocessing with adjustments
   memcpy(preprocessed, aecOut, FRAME_SIZE * sizeof(spx_int16_t));
   dsp.preprocessAudio(preprocessed);
+  Serial.print("Preprocessed samples (first 5): ");
+  for (int i = 0; i < 5 && i < FRAME_SIZE; i++) {
+    Serial.print(preprocessed[i]);
+    Serial.print(" ");
+  }
+  Serial.println();
   float rmsPreprocessed = dsp.computeRMS(preprocessed, FRAME_SIZE);
   Serial.print("Preprocessed RMS (NS on, AGC 0.9, VAD on): ");
   Serial.println(rmsPreprocessed, 6);
@@ -133,6 +141,7 @@ void testAudioProcessing() {
   Serial.print("Preprocessed RMS (NS off): ");
   Serial.println(rmsNoNS, 6);
   dsp.enableNoiseSuppression(true);  // Restore
+  dsp.setNoiseSuppressionLevel(-15); // Restore level
 
   // Adjust AGC and retest
   dsp.enableAGC(true, 0.5f);

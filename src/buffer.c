@@ -31,13 +31,12 @@
    POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifdef HAVE_CONFIG_H
 #include "config.h"
-#endif
+
 
 #include "os_support.h"
 #include "arch.h"
-#include "speex_buffer.h"
+#include "speex/speex_buffer.h"
 
 struct SpeexBuffer_ {
    char *data;
@@ -49,8 +48,8 @@ struct SpeexBuffer_ {
 
 EXPORT SpeexBuffer *speex_buffer_init(int size)
 {
-   SpeexBuffer *st = (SpeexBuffer*)speex_alloc(sizeof(SpeexBuffer));
-   st->data = (char*)speex_alloc(size);
+   SpeexBuffer *st = speex_alloc(sizeof(SpeexBuffer));
+   st->data = speex_alloc(size);
    st->size = size;
    st->read_ptr = 0;
    st->write_ptr = 0;
@@ -68,10 +67,10 @@ EXPORT int speex_buffer_write(SpeexBuffer *st, void *_data, int len)
 {
    int end;
    int end1;
-   char *data = (char*)_data;  // Cast added
+   char *data = _data;
    if (len > st->size)
    {
-      data += len - st->size;
+      data += len-st->size;
       len = st->size;
    }
    end = st->write_ptr + len;
@@ -82,7 +81,7 @@ EXPORT int speex_buffer_write(SpeexBuffer *st, void *_data, int len)
    if (end > st->size)
    {
       end -= st->size;
-      SPEEX_COPY(st->data, data + end1 - st->write_ptr, end);
+      SPEEX_COPY(st->data, data+end1 - st->write_ptr, end);
    }
    st->available += len;
    if (st->available > st->size)
@@ -98,6 +97,8 @@ EXPORT int speex_buffer_write(SpeexBuffer *st, void *_data, int len)
 
 EXPORT int speex_buffer_writezeros(SpeexBuffer *st, int len)
 {
+   /* This is almost the same as for speex_buffer_write() but using
+   SPEEX_MEMSET() instead of SPEEX_COPY(). Update accordingly. */
    int end;
    int end1;
    if (len > st->size)
@@ -129,10 +130,10 @@ EXPORT int speex_buffer_writezeros(SpeexBuffer *st, int len)
 EXPORT int speex_buffer_read(SpeexBuffer *st, void *_data, int len)
 {
    int end, end1;
-   char *data = (char*)_data;  // Cast added
+   char *data = _data;
    if (len > st->available)
    {
-      SPEEX_MEMSET(data + st->available, 0, len - st->available);
+      SPEEX_MEMSET(data+st->available, 0, len - st->available);
       len = st->available;
    }
    end = st->read_ptr + len;
@@ -140,10 +141,11 @@ EXPORT int speex_buffer_read(SpeexBuffer *st, void *_data, int len)
    if (end1 > st->size)
       end1 = st->size;
    SPEEX_COPY(data, st->data + st->read_ptr, end1 - st->read_ptr);
+
    if (end > st->size)
    {
       end -= st->size;
-      SPEEX_COPY(data + end1 - st->read_ptr, st->data, end);
+      SPEEX_COPY(data+end1 - st->read_ptr, st->data, end);
    }
    st->available -= len;
    st->read_ptr += len;
@@ -162,12 +164,11 @@ EXPORT int speex_buffer_resize(SpeexBuffer *st, int len)
    int old_len = st->size;
    if (len > old_len)
    {
-      st->data = (char*)speex_realloc(st->data, len);  // Cast added
+      st->data = speex_realloc(st->data, len);
       /* FIXME: move data/pointers properly for growing the buffer */
    } else {
-      st->data = (char*)speex_realloc(st->data, len);  // Cast added
       /* FIXME: move data/pointers properly for shrinking the buffer */
+      st->data = speex_realloc(st->data, len);
    }
-   st->size = len;
    return len;
 }

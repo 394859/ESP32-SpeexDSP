@@ -55,9 +55,7 @@
    Conference on Acoustics, Speech, and Signal Processing, 2004.
 */
 
-#ifdef HAVE_CONFIG_H
 #include "config.h"
-#endif
 
 #include <math.h>
 #include "speex/speex_preprocess.h"

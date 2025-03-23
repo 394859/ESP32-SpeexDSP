@@ -23,7 +23,7 @@ void setup() {
   if (echoState) speex_echo_state_destroy(echoState);
   echoState = speex_echo_state_init(FRAME_SIZE, FILTER_LENGTH);
   if (echoState) {
-    int sampleRate = SAMPLE_RATE;  // Variable instead of macro
+    int sampleRate = SAMPLE_RATE;
     int result = speex_echo_ctl(echoState, SPEEX_ECHO_SET_SAMPLING_RATE, &sampleRate);
     if (result == 0) {
       Serial.println("AEC initialized");
@@ -42,13 +42,15 @@ void setup() {
   if (preprocessState) {
     int denoise = 1;
     speex_preprocess_ctl(preprocessState, SPEEX_PREPROCESS_SET_DENOISE, &denoise);
+    int noiseSuppress = -15; // Less aggressive noise suppression
+    speex_preprocess_ctl(preprocessState, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &noiseSuppress);
     int agc = 1;
     speex_preprocess_ctl(preprocessState, SPEEX_PREPROCESS_SET_AGC, &agc);
     int level = (int)(0.9f * 32768);
     speex_preprocess_ctl(preprocessState, SPEEX_PREPROCESS_SET_AGC_LEVEL, &level);
     int vad = 1;
     speex_preprocess_ctl(preprocessState, SPEEX_PREPROCESS_SET_VAD, &vad);
-    Serial.println("Preprocessing initialized (denoise, AGC, VAD)");
+    Serial.println("Preprocessing initialized (denoise -15 dB, AGC, VAD)");
   } else {
     Serial.println("Preprocessing initialization failed!");
     while (1) delay(1000);
@@ -97,7 +99,11 @@ void loop() {
       if (preprocessState) {
         int val = enable ? 1 : 0;
         speex_preprocess_ctl(preprocessState, SPEEX_PREPROCESS_SET_DENOISE, &val);
-        Serial.println(enable ? "Noise suppression enabled" : "Noise suppression disabled");
+        if (enable) {
+          int noiseSuppress = -15;
+          speex_preprocess_ctl(preprocessState, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &noiseSuppress);
+        }
+        Serial.println(enable ? "Noise suppression enabled (-15 dB)" : "Noise suppression disabled");
       }
     } else if (input.startsWith("AGC=")) {
       float level = input.substring(4).toFloat();
@@ -164,6 +170,12 @@ void testAudioProcessing() {
   if (preprocessState) {
     memcpy(preprocessed, aecOut, FRAME_SIZE * sizeof(spx_int16_t));
     speex_preprocess_run(preprocessState, preprocessed);
+    Serial.print("Preprocessed samples (first 5): ");
+    for (int i = 0; i < 5 && i < FRAME_SIZE; i++) {
+      Serial.print(preprocessed[i]);
+      Serial.print(" ");
+    }
+    Serial.println();
     float rmsPreprocessed = computeRMS(preprocessed, FRAME_SIZE);
     Serial.print("Preprocessed RMS: ");
     Serial.println(rmsPreprocessed, 6);
@@ -174,7 +186,7 @@ void testAudioProcessing() {
   }
 
   if (jitterBuffer) {
-    int timestamp = 0;
+    spx_uint32_t timestamp = 0;
     JitterBufferPacket packet = {(char*)preprocessed, FRAME_SIZE * sizeof(spx_int16_t), timestamp, FRAME_SIZE, 0};
     jitter_buffer_put(jitterBuffer, &packet);
     Serial.println("Added packet to jitter buffer");
@@ -182,6 +194,7 @@ void testAudioProcessing() {
     JitterBufferPacket outPacket = {(char*)bufferOut, FRAME_SIZE * sizeof(spx_int16_t), 0, FRAME_SIZE, 0};
     spx_int32_t offset;
     int ret = jitter_buffer_get(jitterBuffer, &outPacket, 0, &offset);
+    jitter_buffer_tick(jitterBuffer); // Added for proper timing
     int jitterOutSamples = (ret == JITTER_BUFFER_OK) ? outPacket.len / sizeof(spx_int16_t) : 0;
     Serial.print("Retrieved ");
     Serial.print(jitterOutSamples);

@@ -12,9 +12,6 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef SPEEX_KISS_FFT_GUTS_H
-#define SPEEX_KISS_FFT_GUTS_H
-
 #define MIN(a,b) ((a)<(b) ? (a):(b))
 #define MAX(a,b) ((a)>(b) ? (a):(b))
 
@@ -61,6 +58,7 @@ struct kiss_fft_state{
 		fprintf(stderr,"WARNING:overflow @ " __FILE__ "(%d): (%d " #op" %d) = %ld\n",__LINE__,(a),(b),(SAMPPROD)(a) op (SAMPPROD)(b) );  }
 #endif
 
+
 #   define smul(a,b) ( (SAMPPROD)(a)*(b) )
 #   define sround( x )  (kiss_fft_scalar)( ( (x) + (1<<(FRACBITS-1)) ) >> FRACBITS )
 
@@ -71,8 +69,8 @@ struct kiss_fft_state{
           (m).i = sround( smul((a).r,(b).i) + smul((a).i,(b).r) ); }while(0)
 
 #   define C_MUL4(m,a,b) \
-      do{ (m).r = PSHR32( smul((a).r,(b).r) - smul((a).i,(b).i),17 ); \
-          (m).i = PSHR32( smul((a).r,(b).i) + smul((a).i,(b).r),17 ); }while(0)
+               do{ (m).r = PSHR32( smul((a).r,(b).r) - smul((a).i,(b).i),17 ); \
+               (m).i = PSHR32( smul((a).r,(b).i) + smul((a).i,(b).r),17 ); }while(0)
 
 #   define DIVSCALAR(x,k) \
 	(x) = sround( smul(  x, SAMP_MAX/k ) )
@@ -130,6 +128,7 @@ struct kiss_fft_state{
 	    (res).r -= (a).r;  (res).i -= (a).i; \
     }while(0)
 
+
 #ifdef FIXED_POINT
 #  define KISS_FFT_COS(phase)  floor(MIN(32767,MAX(-32767,.5+32768 * cos (phase))))
 #  define KISS_FFT_SIN(phase)  floor(MIN(32767,MAX(-32767,.5+32768 * sin (phase))))
@@ -150,13 +149,12 @@ struct kiss_fft_state{
 		(x)->i = KISS_FFT_SIN(phase);\
 	}while(0)
 #define  kf_cexp2(x,phase) \
-    do{ \
-        (x)->r = spx_cos_norm((phase));\
-        (x)->i = spx_cos_norm((phase)-32768);\
-    }while(0)
+               do{ \
+               (x)->r = spx_cos_norm((phase));\
+               (x)->i = spx_cos_norm((phase)-32768);\
+}while(0)
+
 
 /* a debugging function */
 #define pcpx(c)\
     fprintf(stderr,"%g + %gi\n",(double)((c)->r),(double)((c)->i) )
-
-#endif /* SPEEX_KISS_FFT_GUTS_H */
