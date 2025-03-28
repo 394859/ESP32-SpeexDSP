@@ -8,13 +8,12 @@
 #include "speex/speex_jitter.h"     // Jitter Buffer
 #include "speex/speex_resampler.h"  // Resampler
 #include "speex/speex_buffer.h"     // Ring buffer
-//#include "codecs/g7xx/g72x.h"        // G.711 codec
 #include <stdint.h>                 // Standard types
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "codecs/g7xx/g72x.h" // Back in the game
+#include "codecs/g7xx/g72x.h" // G.711 codec
 #ifdef __cplusplus
 }
 #endif
@@ -26,6 +25,7 @@ public:
 
     // AEC
     bool beginAEC(int frameSize, int filterLength, int sampleRate, int channels = 1);
+    void enableAEC(bool enable); // Toggle AEC on/off
     void processAEC(int16_t *mic, int16_t *speaker, int16_t *out);
     SpeexEchoState* getEchoState();
 
@@ -36,6 +36,7 @@ public:
     void setNoiseSuppressionLevel(int dB);
     void enableAGC(bool enable, float targetLevel = 0.9f);
     void enableVAD(bool enable);
+    void setVADThreshold(int probability); // New: Adjust VAD sensitivity (0-100)
     bool isVoiceDetected();
 
     // Jitter Buffer
@@ -45,10 +46,12 @@ public:
 
     // Resampler
     bool beginResampler(int inputRate, int outputRate, int quality = 5);
+    void setResamplerQuality(int quality); // New: Adjust resampler quality
     int resample(int16_t *in, int inLen, int16_t *out, int outLenMax);
 
     // Ring Buffer
     bool beginBuffer(int bufferSize);
+    bool resizeBuffer(int newBufferSize); // New: Adjust ring buffer size
     void writeBuffer(int16_t *data, int len);
     int readBuffer(int16_t *out, int len);
 
@@ -74,6 +77,8 @@ public:
 
     // Utility
     float computeRMS(int16_t *data, int len);
+    bool setSampleRate(int newSampleRate, int aecFrameSize = 0, int aecFilterLength = 0); // New: Adjust sample rate
+    bool setFrameSize(int newFrameSize); // New: Adjust frame size for AEC and preprocess
 
 private:
     SpeexEchoState *echoState;
@@ -84,6 +89,10 @@ private:
     int frameSize;
     int sampleRate;
     int jitterStepSize;
+    bool aecEnabled; // Track AEC state
+    int resamplerInputRate; // New: Store for resampler reinit
+    int resamplerOutputRate; // New: Store for resampler reinit
+    int resamplerQuality; // New: Store for resampler reinit
 };
 
 #endif

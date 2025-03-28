@@ -2,12 +2,12 @@
 #include <cstring>
 #include <cmath>
 #include <Arduino.h>
-//#include "codecs/g7xx/g72x.h"        // G.711 codec
 
 ESP32SpeexDSP::ESP32SpeexDSP() 
     : echoState(nullptr), preprocessState(nullptr), jitterBuffer(nullptr), 
       resampler(nullptr), ringBuffer(nullptr), frameSize(0), sampleRate(0), 
-      jitterStepSize(0) {}
+      jitterStepSize(0), aecEnabled(false), resamplerInputRate(0), 
+      resamplerOutputRate(0), resamplerQuality(5) {}
 
 ESP32SpeexDSP::~ESP32SpeexDSP() {
     if (echoState) speex_echo_state_destroy(echoState);
@@ -19,17 +19,28 @@ ESP32SpeexDSP::~ESP32SpeexDSP() {
 
 // AEC
 bool ESP32SpeexDSP::beginAEC(int frameSize, int filterLength, int sampleRate, int channels) {
+    if (echoState) {
+        speex_echo_state_destroy(echoState);
+        echoState = nullptr;
+    }
     this->frameSize = frameSize;
     this->sampleRate = sampleRate;
     echoState = speex_echo_state_init_mc(frameSize, filterLength, channels, channels);
     if (!echoState) return false;
     speex_echo_ctl(echoState, SPEEX_ECHO_SET_SAMPLING_RATE, &sampleRate);
+    aecEnabled = true; // Enable by default
     return true;
 }
 
+void ESP32SpeexDSP::enableAEC(bool enable) {
+    aecEnabled = enable;
+}
+
 void ESP32SpeexDSP::processAEC(int16_t *mic, int16_t *speaker, int16_t *out) {
-    if (echoState) {
+    if (echoState && aecEnabled) {
         speex_echo_cancellation(echoState, mic, speaker, out);
+    } else {
+        memcpy(out, mic, frameSize * sizeof(int16_t));
     }
 }
 
@@ -39,6 +50,10 @@ SpeexEchoState* ESP32SpeexDSP::getEchoState() {
 
 // Preprocessing
 bool ESP32SpeexDSP::beginPreprocess(int frameSize, int sampleRate) {
+    if (preprocessState) {
+        speex_preprocess_state_destroy(preprocessState);
+        preprocessState = nullptr;
+    }
     this->frameSize = frameSize;
     this->sampleRate = sampleRate;
     preprocessState = speex_preprocess_state_init(frameSize, sampleRate);
@@ -80,6 +95,12 @@ void ESP32SpeexDSP::enableVAD(bool enable) {
     if (preprocessState) {
         int i = enable ? 1 : 0;
         speex_preprocess_ctl(preprocessState, SPEEX_PREPROCESS_SET_VAD, &i);
+    }
+}
+
+void ESP32SpeexDSP::setVADThreshold(int probability) {
+    if (preprocessState && probability >= 0 && probability <= 100) {
+        speex_preprocess_ctl(preprocessState, SPEEX_PREPROCESS_SET_PROB_START, &probability);
     }
 }
 
@@ -126,14 +147,30 @@ int ESP32SpeexDSP::getJitterPacket(int16_t *out, int len) {
 
 // Resampler
 bool ESP32SpeexDSP::beginResampler(int inputRate, int outputRate, int quality) {
+    if (resampler) {
+        speex_resampler_destroy(resampler);
+        resampler = nullptr;
+    }
     int err = 0;
     resampler = speex_resampler_init(1, inputRate, outputRate, quality, &err);
+    resamplerInputRate = inputRate;
+    resamplerOutputRate = outputRate;
+    resamplerQuality = quality;
     return resampler != nullptr && err == 0;
+}
+
+void ESP32SpeexDSP::setResamplerQuality(int quality) {
+    if (resampler && quality >= 0 && quality <= 10) {
+        speex_resampler_destroy(resampler);
+        int err = 0;
+        resampler = speex_resampler_init(1, resamplerInputRate, resamplerOutputRate, quality, &err);
+        resamplerQuality = quality;
+    }
 }
 
 int ESP32SpeexDSP::resample(int16_t *in, int inLen, int16_t *out, int outLenMax) {
     if (resampler) {
-        uint32_t in_len = inLen;
+        uint32_t in_len =植物inLen;
         uint32_t out_len = outLenMax;
         int err = speex_resampler_process_int(resampler, 0, in, &in_len, out, &out_len);
         if (err == 0) return out_len;
@@ -143,8 +180,21 @@ int ESP32SpeexDSP::resample(int16_t *in, int inLen, int16_t *out, int outLenMax)
 
 // Ring Buffer
 bool ESP32SpeexDSP::beginBuffer(int bufferSize) {
+    if (ringBuffer) {
+        speex_buffer_destroy(ringBuffer);
+        ringBuffer = nullptr;
+    }
     ringBuffer = speex_buffer_init(bufferSize * sizeof(int16_t));
     return ringBuffer != nullptr;
+}
+
+bool ESP32SpeexDSP::resizeBuffer(int newBufferSize) {
+    if (ringBuffer) {
+        speex_buffer_destroy(ringBuffer);
+        ringBuffer = speex_buffer_init(newBufferSize * sizeof(int16_t));
+        return ringBuffer != nullptr;
+    }
+    return false;
 }
 
 void ESP32SpeexDSP::writeBuffer(int16_t *data, int len) {
@@ -161,7 +211,7 @@ int ESP32SpeexDSP::readBuffer(int16_t *out, int len) {
     return 0;
 }
 
-// G.711 u-law and A-law conversions
+// G.711 Codec
 void ESP32SpeexDSP::decodeG711(uint8_t* inG711, int16_t* out, int numSamples, bool ulaw) {
     for (int i = 0; i < numSamples; i++) {
         out[i] = ulaw ? ulaw2linear(inG711[i]) : alaw2linear(inG711[i]);
@@ -210,4 +260,64 @@ float ESP32SpeexDSP::computeRMS(int16_t *data, int len) {
         sum += sample * sample;
     }
     return sqrtf(sum / len);
+}
+
+bool ESP32SpeexDSP::setSampleRate(int newSampleRate, int aecFrameSize, int aecFilterLength) {
+    bool success = true;
+    int oldFrameSize = frameSize;
+    int oldSampleRate = sampleRate;
+
+    sampleRate = newSampleRate;
+
+    if (echoState) {
+        int channels = 1; // Default, could store as member
+        speex_echo_state_destroy(echoState);
+        echoState = nullptr;
+        echoState = speex_echo_state_init_mc(aecFrameSize ? aecFrameSize : oldFrameSize,
+                                             aecFilterLength ? aecFilterLength : oldFrameSize * 2,
+                                             channels, channels);
+        if (echoState) {
+            speex_echo_ctl(echoState, SPEEX_ECHO_SET_SAMPLING_RATE, &sampleRate);
+        } else {
+            success = false;
+        }
+    }
+
+    if (preprocessState) {
+        speex_preprocess_state_destroy(preprocessState);
+        preprocessState = nullptr;
+        preprocessState = speex_preprocess_state_init(oldFrameSize, sampleRate);
+        if (!preprocessState) success = false;
+    }
+
+    if (jitterBuffer) {
+        jitterStepSize = (sampleRate * jitterStepSize) / oldSampleRate;
+        jitter_buffer_destroy(jitterBuffer);
+        jitterBuffer = jitter_buffer_init(jitterStepSize);
+        if (!jitterBuffer) success = false;
+    }
+
+    return success;
+}
+
+bool ESP32SpeexDSP::setFrameSize(int newFrameSize) {
+    bool success = true;
+    if (echoState) {
+        int channels = 1;
+        int filterLength = newFrameSize * 2; // Example scaling
+        speex_echo_state_destroy(echoState);
+        echoState = speex_echo_state_init_mc(newFrameSize, filterLength, channels, channels);
+        if (echoState) {
+            speex_echo_ctl(echoState, SPEEX_ECHO_SET_SAMPLING_RATE, &sampleRate);
+        } else {
+            success = false;
+        }
+    }
+    if (preprocessState) {
+        speex_preprocess_state_destroy(preprocessState);
+        preprocessState = speex_preprocess_state_init(newFrameSize, sampleRate);
+        if (!preprocessState) success = false;
+    }
+    frameSize = newFrameSize;
+    return success;
 }
