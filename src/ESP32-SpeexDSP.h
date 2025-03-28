@@ -1,19 +1,19 @@
 #ifndef ESP32_SPEEXDSP_H
 #define ESP32_SPEEXDSP_H
 
-#include "config.h"                 // Configuration defines
-#include "speex/speexdsp_types.h"   // Core type definitions
-#include "speex/speex_echo.h"       // AEC
-#include "speex/speex_preprocess.h" // NS, AGC, VAD, etc.
-#include "speex/speex_jitter.h"     // Jitter Buffer
-#include "speex/speex_resampler.h"  // Resampler
-#include "speex/speex_buffer.h"     // Ring buffer
-#include <stdint.h>                 // Standard types
+#include "config.h"
+#include "speex/speexdsp_types.h"
+#include "speex/speex_echo.h"
+#include "speex/speex_preprocess.h"
+#include "speex/speex_jitter.h"
+#include "speex/speex_resampler.h"
+#include "speex/speex_buffer.h"
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-#include "codecs/g7xx/g72x.h" // G.711 codec
+#include "codecs/g7xx/g72x.h"
 #ifdef __cplusplus
 }
 #endif
@@ -25,19 +25,26 @@ public:
 
     // AEC
     bool beginAEC(int frameSize, int filterLength, int sampleRate, int channels = 1);
-    void enableAEC(bool enable); // Toggle AEC on/off
+    void enableAEC(bool enable);
     void processAEC(int16_t *mic, int16_t *speaker, int16_t *out);
     SpeexEchoState* getEchoState();
 
-    // Preprocessing
-    bool beginPreprocess(int frameSize, int sampleRate);
-    void preprocessAudio(int16_t *inOut);
-    void enableNoiseSuppression(bool enable);
-    void setNoiseSuppressionLevel(int dB);
-    void enableAGC(bool enable, float targetLevel = 0.9f);
-    void enableVAD(bool enable);
-    void setVADThreshold(int probability); // New: Adjust VAD sensitivity (0-100)
-    bool isVoiceDetected();
+    // Preprocessing - Mic
+    bool beginMicPreprocess(int frameSize, int sampleRate);
+    void preprocessMicAudio(int16_t *inOut); // Mic-specific
+    void enableMicNoiseSuppression(bool enable);
+    void setMicNoiseSuppressionLevel(int dB);
+    void enableMicAGC(bool enable, float targetLevel = 0.9f);
+    void enableMicVAD(bool enable);
+    void setMicVADThreshold(int probability);
+    bool isMicVoiceDetected();
+
+    // Preprocessing - Speaker
+    bool beginSpeakerPreprocess(int frameSize, int sampleRate);
+    void preprocessSpeakerAudio(int16_t *inOut); // Speaker-specific
+    void enableSpeakerNoiseSuppression(bool enable);
+    void setSpeakerNoiseSuppressionLevel(int dB);
+    void enableSpeakerAGC(bool enable, float targetLevel = 0.9f);
 
     // Jitter Buffer
     bool beginJitterBuffer(int stepSizeMs);
@@ -46,12 +53,12 @@ public:
 
     // Resampler
     bool beginResampler(int inputRate, int outputRate, int quality = 5);
-    void setResamplerQuality(int quality); // New: Adjust resampler quality
+    void setResamplerQuality(int quality);
     int resample(int16_t *in, int inLen, int16_t *out, int outLenMax);
 
     // Ring Buffer
     bool beginBuffer(int bufferSize);
-    bool resizeBuffer(int newBufferSize); // New: Adjust ring buffer size
+    bool resizeBuffer(int newBufferSize);
     void writeBuffer(int16_t *data, int len);
     int readBuffer(int16_t *out, int len);
 
@@ -77,22 +84,23 @@ public:
 
     // Utility
     float computeRMS(int16_t *data, int len);
-    bool setSampleRate(int newSampleRate, int aecFrameSize = 0, int aecFilterLength = 0); // New: Adjust sample rate
-    bool setFrameSize(int newFrameSize); // New: Adjust frame size for AEC and preprocess
+    bool setSampleRate(int newSampleRate, int aecFrameSize = 0, int aecFilterLength = 0);
+    bool setFrameSize(int newFrameSize);
 
 private:
     SpeexEchoState *echoState;
-    SpeexPreprocessState *preprocessState;
+    SpeexPreprocessState *micPreprocessState; // Mic-specific
+    SpeexPreprocessState *speakerPreprocessState; // Speaker-specific
     JitterBuffer *jitterBuffer;
     SpeexResamplerState *resampler;
     SpeexBuffer *ringBuffer;
     int frameSize;
     int sampleRate;
     int jitterStepSize;
-    bool aecEnabled; // Track AEC state
-    int resamplerInputRate; // New: Store for resampler reinit
-    int resamplerOutputRate; // New: Store for resampler reinit
-    int resamplerQuality; // New: Store for resampler reinit
+    bool aecEnabled;
+    int resamplerInputRate;
+    int resamplerOutputRate;
+    int resamplerQuality;
 };
 
 #endif

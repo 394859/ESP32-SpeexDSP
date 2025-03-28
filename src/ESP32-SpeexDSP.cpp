@@ -4,20 +4,21 @@
 #include <Arduino.h>
 
 ESP32SpeexDSP::ESP32SpeexDSP() 
-    : echoState(nullptr), preprocessState(nullptr), jitterBuffer(nullptr), 
-      resampler(nullptr), ringBuffer(nullptr), frameSize(0), sampleRate(0), 
-      jitterStepSize(0), aecEnabled(false), resamplerInputRate(0), 
+    : echoState(nullptr), micPreprocessState(nullptr), speakerPreprocessState(nullptr), 
+      jitterBuffer(nullptr), resampler(nullptr), ringBuffer(nullptr), frameSize(0), 
+      sampleRate(0), jitterStepSize(0), aecEnabled(false), resamplerInputRate(0), 
       resamplerOutputRate(0), resamplerQuality(5) {}
 
 ESP32SpeexDSP::~ESP32SpeexDSP() {
     if (echoState) speex_echo_state_destroy(echoState);
-    if (preprocessState) speex_preprocess_state_destroy(preprocessState);
+    if (micPreprocessState) speex_preprocess_state_destroy(micPreprocessState);
+    if (speakerPreprocessState) speex_preprocess_state_destroy(speakerPreprocessState);
     if (jitterBuffer) jitter_buffer_destroy(jitterBuffer);
     if (resampler) speex_resampler_destroy(resampler);
     if (ringBuffer) speex_buffer_destroy(ringBuffer);
 }
 
-// AEC
+// AEC (unchanged)
 bool ESP32SpeexDSP::beginAEC(int frameSize, int filterLength, int sampleRate, int channels) {
     if (echoState) {
         speex_echo_state_destroy(echoState);
@@ -28,7 +29,7 @@ bool ESP32SpeexDSP::beginAEC(int frameSize, int filterLength, int sampleRate, in
     echoState = speex_echo_state_init_mc(frameSize, filterLength, channels, channels);
     if (!echoState) return false;
     speex_echo_ctl(echoState, SPEEX_ECHO_SET_SAMPLING_RATE, &sampleRate);
-    aecEnabled = true; // Enable by default
+    aecEnabled = true;
     return true;
 }
 
@@ -48,69 +49,110 @@ SpeexEchoState* ESP32SpeexDSP::getEchoState() {
     return echoState;
 }
 
-// Preprocessing
-bool ESP32SpeexDSP::beginPreprocess(int frameSize, int sampleRate) {
-    if (preprocessState) {
-        speex_preprocess_state_destroy(preprocessState);
-        preprocessState = nullptr;
+// Preprocessing - Mic
+bool ESP32SpeexDSP::beginMicPreprocess(int frameSize, int sampleRate) {
+    if (micPreprocessState) {
+        speex_preprocess_state_destroy(micPreprocessState);
+        micPreprocessState = nullptr;
     }
     this->frameSize = frameSize;
     this->sampleRate = sampleRate;
-    preprocessState = speex_preprocess_state_init(frameSize, sampleRate);
-    if (!preprocessState) return false;
-    return true;
+    micPreprocessState = speex_preprocess_state_init(frameSize, sampleRate);
+    return micPreprocessState != nullptr;
 }
 
-void ESP32SpeexDSP::preprocessAudio(int16_t *inOut) {
-    if (preprocessState) {
-        speex_preprocess_run(preprocessState, inOut);
+void ESP32SpeexDSP::preprocessMicAudio(int16_t *inOut) {
+    if (micPreprocessState) {
+        speex_preprocess_run(micPreprocessState, inOut);
     }
 }
 
-void ESP32SpeexDSP::enableNoiseSuppression(bool enable) {
-    if (preprocessState) {
+void ESP32SpeexDSP::enableMicNoiseSuppression(bool enable) {
+    if (micPreprocessState) {
         int i = enable ? 1 : 0;
-        speex_preprocess_ctl(preprocessState, SPEEX_PREPROCESS_SET_DENOISE, &i);
+        speex_preprocess_ctl(micPreprocessState, SPEEX_PREPROCESS_SET_DENOISE, &i);
     }
 }
 
-void ESP32SpeexDSP::setNoiseSuppressionLevel(int dB) {
-    if (preprocessState) {
-        speex_preprocess_ctl(preprocessState, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &dB);
+void ESP32SpeexDSP::setMicNoiseSuppressionLevel(int dB) {
+    if (micPreprocessState) {
+        speex_preprocess_ctl(micPreprocessState, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &dB);
     }
 }
 
-void ESP32SpeexDSP::enableAGC(bool enable, float targetLevel) {
-    if (preprocessState) {
+void ESP32SpeexDSP::enableMicAGC(bool enable, float targetLevel) {
+    if (micPreprocessState) {
         int i = enable ? 1 : 0;
-        speex_preprocess_ctl(preprocessState, SPEEX_PREPROCESS_SET_AGC, &i);
+        speex_preprocess_ctl(micPreprocessState, SPEEX_PREPROCESS_SET_AGC, &i);
         if (enable) {
             float level = targetLevel * 32768.0f;
-            speex_preprocess_ctl(preprocessState, SPEEX_PREPROCESS_SET_AGC_LEVEL, &level);
+            speex_preprocess_ctl(micPreprocessState, SPEEX_PREPROCESS_SET_AGC_LEVEL, &level);
         }
     }
 }
 
-void ESP32SpeexDSP::enableVAD(bool enable) {
-    if (preprocessState) {
+void ESP32SpeexDSP::enableMicVAD(bool enable) {
+    if (micPreprocessState) {
         int i = enable ? 1 : 0;
-        speex_preprocess_ctl(preprocessState, SPEEX_PREPROCESS_SET_VAD, &i);
+        speex_preprocess_ctl(micPreprocessState, SPEEX_PREPROCESS_SET_VAD, &i);
     }
 }
 
-void ESP32SpeexDSP::setVADThreshold(int probability) {
-    if (preprocessState && probability >= 0 && probability <= 100) {
-        speex_preprocess_ctl(preprocessState, SPEEX_PREPROCESS_SET_PROB_START, &probability);
+void ESP32SpeexDSP::setMicVADThreshold(int probability) {
+    if (micPreprocessState && probability >= 0 && probability <= 100) {
+        speex_preprocess_ctl(micPreprocessState, SPEEX_PREPROCESS_SET_PROB_START, &probability);
     }
 }
 
-bool ESP32SpeexDSP::isVoiceDetected() {
-    if (preprocessState) {
+bool ESP32SpeexDSP::isMicVoiceDetected() {
+    if (micPreprocessState) {
         int vad = 0;
-        speex_preprocess_ctl(preprocessState, SPEEX_PREPROCESS_GET_VAD, &vad);
+        speex_preprocess_ctl(micPreprocessState, SPEEX_PREPROCESS_GET_VAD, &vad);
         return vad != 0;
     }
     return false;
+}
+
+// Preprocessing - Speaker
+bool ESP32SpeexDSP::beginSpeakerPreprocess(int frameSize, int sampleRate) {
+    if (speakerPreprocessState) {
+        speex_preprocess_state_destroy(speakerPreprocessState);
+        speakerPreprocessState = nullptr;
+    }
+    this->frameSize = frameSize;
+    this->sampleRate = sampleRate;
+    speakerPreprocessState = speex_preprocess_state_init(frameSize, sampleRate);
+    return speakerPreprocessState != nullptr;
+}
+
+void ESP32SpeexDSP::preprocessSpeakerAudio(int16_t *inOut) {
+    if (speakerPreprocessState) {
+        speex_preprocess_run(speakerPreprocessState, inOut);
+    }
+}
+
+void ESP32SpeexDSP::enableSpeakerNoiseSuppression(bool enable) {
+    if (speakerPreprocessState) {
+        int i = enable ? 1 : 0;
+        speex_preprocess_ctl(speakerPreprocessState, SPEEX_PREPROCESS_SET_DENOISE, &i);
+    }
+}
+
+void ESP32SpeexDSP::setSpeakerNoiseSuppressionLevel(int dB) {
+    if (speakerPreprocessState) {
+        speex_preprocess_ctl(speakerPreprocessState, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &dB);
+    }
+}
+
+void ESP32SpeexDSP::enableSpeakerAGC(bool enable, float targetLevel) {
+    if (speakerPreprocessState) {
+        int i = enable ? 1 : 0;
+        speex_preprocess_ctl(speakerPreprocessState, SPEEX_PREPROCESS_SET_AGC, &i);
+        if (enable) {
+            float level = targetLevel * 32768.0f;
+            speex_preprocess_ctl(speakerPreprocessState, SPEEX_PREPROCESS_SET_AGC_LEVEL, &level);
+        }
+    }
 }
 
 // Jitter Buffer
