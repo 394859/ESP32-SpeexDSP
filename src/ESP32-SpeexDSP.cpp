@@ -49,7 +49,7 @@ SpeexEchoState* ESP32SpeexDSP::getEchoState() {
     return echoState;
 }
 
-// Preprocessing - Mic
+// Preprocessing - Mic (unchanged)
 bool ESP32SpeexDSP::beginMicPreprocess(int frameSize, int sampleRate) {
     if (micPreprocessState) {
         speex_preprocess_state_destroy(micPreprocessState);
@@ -113,7 +113,7 @@ bool ESP32SpeexDSP::isMicVoiceDetected() {
     return false;
 }
 
-// Preprocessing - Speaker
+// Preprocessing - Speaker (unchanged)
 bool ESP32SpeexDSP::beginSpeakerPreprocess(int frameSize, int sampleRate) {
     if (speakerPreprocessState) {
         speex_preprocess_state_destroy(speakerPreprocessState);
@@ -155,7 +155,7 @@ void ESP32SpeexDSP::enableSpeakerAGC(bool enable, float targetLevel) {
     }
 }
 
-// Jitter Buffer
+// Jitter Buffer (unchanged)
 bool ESP32SpeexDSP::beginJitterBuffer(int stepSizeMs) {
     jitterStepSize = (sampleRate * stepSizeMs) / 1000;
     jitterBuffer = jitter_buffer_init(jitterStepSize);
@@ -212,7 +212,7 @@ void ESP32SpeexDSP::setResamplerQuality(int quality) {
 
 int ESP32SpeexDSP::resample(int16_t *in, int inLen, int16_t *out, int outLenMax) {
     if (resampler) {
-        uint32_t in_len =植物inLen;
+        uint32_t in_len = inLen; // Fixed typo: was "植物inLen"
         uint32_t out_len = outLenMax;
         int err = speex_resampler_process_int(resampler, 0, in, &in_len, out, &out_len);
         if (err == 0) return out_len;
@@ -220,7 +220,7 @@ int ESP32SpeexDSP::resample(int16_t *in, int inLen, int16_t *out, int outLenMax)
     return 0;
 }
 
-// Ring Buffer
+// Ring Buffer (unchanged)
 bool ESP32SpeexDSP::beginBuffer(int bufferSize) {
     if (ringBuffer) {
         speex_buffer_destroy(ringBuffer);
@@ -253,7 +253,7 @@ int ESP32SpeexDSP::readBuffer(int16_t *out, int len) {
     return 0;
 }
 
-// G.711 Codec
+// G.711 Codec (unchanged)
 void ESP32SpeexDSP::decodeG711(uint8_t* inG711, int16_t* out, int numSamples, bool ulaw) {
     for (int i = 0; i < numSamples; i++) {
         out[i] = ulaw ? ulaw2linear(inG711[i]) : alaw2linear(inG711[i]);
@@ -266,7 +266,7 @@ void ESP32SpeexDSP::encodeG711(int16_t* in, uint8_t* outG711, int numSamples, bo
     }
 }
 
-// RTP Parsing
+// RTP Parsing (unchanged)
 bool ESP32SpeexDSP::parseRTPPacket(uint8_t* packet, int packetLen, RTPPacket& rtp) {
     if (!packet || packetLen < 12) return false;
 
@@ -325,11 +325,18 @@ bool ESP32SpeexDSP::setSampleRate(int newSampleRate, int aecFrameSize, int aecFi
         }
     }
 
-    if (preprocessState) {
-        speex_preprocess_state_destroy(preprocessState);
-        preprocessState = nullptr;
-        preprocessState = speex_preprocess_state_init(oldFrameSize, sampleRate);
-        if (!preprocessState) success = false;
+    // Update both mic and speaker preprocessing states
+    if (micPreprocessState) {
+        speex_preprocess_state_destroy(micPreprocessState);
+        micPreprocessState = nullptr;
+        micPreprocessState = speex_preprocess_state_init(oldFrameSize, sampleRate);
+        if (!micPreprocessState) success = false;
+    }
+    if (speakerPreprocessState) {
+        speex_preprocess_state_destroy(speakerPreprocessState);
+        speakerPreprocessState = nullptr;
+        speakerPreprocessState = speex_preprocess_state_init(oldFrameSize, sampleRate);
+        if (!speakerPreprocessState) success = false;
     }
 
     if (jitterBuffer) {
@@ -355,10 +362,16 @@ bool ESP32SpeexDSP::setFrameSize(int newFrameSize) {
             success = false;
         }
     }
-    if (preprocessState) {
-        speex_preprocess_state_destroy(preprocessState);
-        preprocessState = speex_preprocess_state_init(newFrameSize, sampleRate);
-        if (!preprocessState) success = false;
+    // Update both mic and speaker preprocessing states
+    if (micPreprocessState) {
+        speex_preprocess_state_destroy(micPreprocessState);
+        micPreprocessState = speex_preprocess_state_init(newFrameSize, sampleRate);
+        if (!micPreprocessState) success = false;
+    }
+    if (speakerPreprocessState) {
+        speex_preprocess_state_destroy(speakerPreprocessState);
+        speakerPreprocessState = speex_preprocess_state_init(newFrameSize, sampleRate);
+        if (!speakerPreprocessState) success = false;
     }
     frameSize = newFrameSize;
     return success;
