@@ -212,7 +212,7 @@ void ESP32SpeexDSP::setResamplerQuality(int quality) {
 
 int ESP32SpeexDSP::resample(int16_t *in, int inLen, int16_t *out, int outLenMax) {
     if (resampler) {
-        uint32_t in_len = inLen; // Fixed typo: was "植物inLen"
+        uint32_t in_len = inLen;
         uint32_t out_len = outLenMax;
         int err = speex_resampler_process_int(resampler, 0, in, &in_len, out, &out_len);
         if (err == 0) return out_len;
@@ -251,57 +251,6 @@ int ESP32SpeexDSP::readBuffer(int16_t *out, int len) {
         return bytesRead / sizeof(int16_t);
     }
     return 0;
-}
-
-// G.711 Codec (unchanged)
-void ESP32SpeexDSP::decodeG711(uint8_t* inG711, int16_t* out, int numSamples, bool ulaw) {
-    for (int i = 0; i < numSamples; i++) {
-        out[i] = ulaw ? ulaw2linear(inG711[i]) : alaw2linear(inG711[i]);
-    }
-}
-
-void ESP32SpeexDSP::encodeG711(int16_t* in, uint8_t* outG711, int numSamples, bool ulaw) {
-    for (int i = 0; i < numSamples; i++) {
-        outG711[i] = ulaw ? linear2ulaw(in[i]) : linear2alaw(in[i]);
-    }
-}
-
-// RTP Parsing (unchanged)
-bool ESP32SpeexDSP::parseRTPPacket(uint8_t* packet, int packetLen, RTPPacket& rtp) {
-    if (!packet || packetLen < 12) return false;
-
-    rtp.version = (packet[0] >> 6) & 0x03;
-    rtp.padding = (packet[0] & 0x20) != 0;
-    rtp.extension = (packet[0] & 0x10) != 0;
-    rtp.csrcCount = packet[0] & 0x0F;
-    rtp.marker = (packet[1] & 0x80) != 0;
-    rtp.payloadType = packet[1] & 0x7F;
-    rtp.sequenceNumber = (packet[2] << 8) | packet[3];
-    rtp.timestamp = (packet[4] << 24) | (packet[5] << 16) | (packet[6] << 8) | packet[7];
-    rtp.ssrc = (packet[8] << 24) | (packet[9] << 16) | (packet[10] << 8) | packet[11];
-
-    int headerLen = 12 + (rtp.csrcCount * 4);
-    if (rtp.extension) {
-        if (packetLen < headerLen + 4) return false;
-        headerLen += 4 + ((packet[headerLen + 2] << 8) | packet[headerLen + 3]) * 4;
-    }
-
-    if (packetLen < headerLen) return false;
-    rtp.payload = packet + headerLen;
-    rtp.payloadLen = packetLen - headerLen;
-
-    return rtp.version == 2;
-}
-
-// Utility
-float ESP32SpeexDSP::computeRMS(int16_t *data, int len) {
-    if (len <= 0) return 0.0f;
-    float sum = 0.0f;
-    for (int i = 0; i < len; i++) {
-        float sample = (float)data[i] / 32768.0f;
-        sum += sample * sample;
-    }
-    return sqrtf(sum / len);
 }
 
 bool ESP32SpeexDSP::setSampleRate(int newSampleRate, int aecFrameSize, int aecFilterLength) {
