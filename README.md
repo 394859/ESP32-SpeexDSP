@@ -3,37 +3,25 @@
 A comprehensive library for audio processing on the ESP32 using SpeexDSP. It provides high-level and low-level APIs for tasks such as acoustic echo cancellation (AEC), noise suppression (NS), automatic gain control (AGC), voice activity detection (VAD), jitter buffering, resampling, ring buffering, G.711 codec, RTP parsing, and RMS calculation.
 一个使用 SpeexDSP 在 ESP32 上进行音频处理的综合库。它为声学回声消除 (AEC)、噪声抑制 (NS)、自动增益控制 (AGC)、语音活动检测 (VAD)、抖动缓冲、重采样、环形缓冲、G.711 编解码器、RTP 解析和 RMS 计算等任务提供高级和低级 API。
 ## Features
-- **Acoustic Echo Cancellation (AEC)**: Removes echo from microphone input using speaker output as a reference.
-- **Noise Suppression (NS)**: Reduces background noise in microphone and speaker audio.
-- **Automatic Gain Control (AGC)**: Adjusts audio levels to maintain consistent volume.
-- **Voice Activity Detection (VAD)**: Detects whether voice is present in the audio.
-- **Jitter Buffer**: Handles timing issues in packetized audio streams.
-- **Resampler**: Converts audio between different sample rates with adjustable quality.
-- **Ring Buffer**: Efficiently stores and retrieves audio samples.
-- **G.711 Codec**: Encodes and decodes audio using u-law or A-law formats.
-- **RTP Parsing**: Parses RTP packets for audio streaming.
-- **RMS Calculation**: Computes the root mean square of audio data for signal strength measurement.
-声学回声消除 (AEC)：使用扬声器输出作为参考，消除麦克风输入的回声。
-噪声抑制 (NS)：降低麦克风和扬声器音频中的背景噪音。
-自动增益控制 (AGC)：调整音频级别以保持一致的音量。
-语音活动检测 (VAD)：检测音频中是否存在语音。
-抖动缓冲区：处理分组音频流中的时间问题。
-重采样器：在可调节质量的不同采样率之间转换音频。
-环形缓冲区：有效地存储和检索音频样本。
-G.711 编解码器：使用 u-law 或 A-law 格式对音频进行编码和解码。
-RTP 解析：解析音频流的 RTP 数据包。
-RMS 计算：计算音频数据的均方根以测量信号强度。
+- **声学回声消除 (AEC)：使用扬声器输出作为参考，消除麦克风输入的回声。Acoustic Echo Cancellation (AEC)**: Removes echo from microphone input using speaker output as a reference.
+- **噪声抑制 (NS)：降低麦克风和扬声器音频中的背景噪音。Noise Suppression (NS)**: Reduces background noise in microphone and speaker audio.
+- **自动增益控制 (AGC)：调整音频级别以保持一致的音量。Automatic Gain Control (AGC)**: Adjusts audio levels to maintain consistent volume.
+- **语音活动检测 (VAD)：检测音频中是否存在语音。Voice Activity Detection (VAD)**: Detects whether voice is present in the audio.
+- **抖动缓冲区：处理分组音频流中的时间问题。Jitter Buffer**: Handles timing issues in packetized audio streams.
+- **重采样器：在可调节质量的不同采样率之间转换音频。Resampler**: Converts audio between different sample rates with adjustable quality.
+- **环形缓冲区：有效地存储和检索音频样本。Ring Buffer**: Efficiently stores and retrieves audio samples.
+- **G.711 编解码器：使用 u-law 或 A-law 格式对音频进行编码和解码。G.711 Codec**: Encodes and decodes audio using u-law or A-law formats.
+- **RTP 解析：解析音频流的 RTP 数据包。RTP Parsing**: Parses RTP packets for audio streaming.
+- **RMS 计算：计算音频数据的均方根以测量信号强度。RMS Calculation**: Computes the root mean square of audio data for signal strength measurement.
+
 
 ## Installation
-1. 克隆或下载此存储库：
-2. 将文件夹移动ESP32-SpeexDSP到您的 Arduino 库目录（例如~/Documents/Arduino/libraries/）。
-3. 打开 Arduino IDE，该库将在Sketch > Include Library下可用。
-1. Clone or download this repository:
+1. 克隆或下载此存储库： Clone or download this repository:
    ```bash
    git clone https://github.com/rjsachse/ESP32-SpeexDSP.git
    ```
-2. Move the `ESP32-SpeexDSP` folder to your Arduino libraries directory (e.g., `~/Documents/Arduino/libraries/`).
-3. Open Arduino IDE, and the library will be available under *Sketch > Include Library*.
+2. 将文件夹移动ESP32-SpeexDSP到您的 Arduino 库目录（例如~/Documents/Arduino/libraries/）。Move the `ESP32-SpeexDSP` folder to your Arduino libraries directory (e.g., `~/Documents/Arduino/libraries/`).
+3. 打开 Arduino IDE，该库将在Sketch > Include Library下可用。Open Arduino IDE, and the library will be available under *Sketch > Include Library*.
 
 ## Usage
 ### High-Level API
